@@ -171,18 +171,16 @@ But honestly…
 So, ``emotions`` is now once again in its raw, native, ready-to-use 🤗 format!
 
 ---
-Just like loading a dataset with 🤗 is easy 😊, grabbing a model—or a part of it, like its tokenizer—is just as simple 😎.
+Just like loading a dataset with 🤗 is easy, grabbing a model—or a part of it, like its tokenizer—is just as simple 😎.
 Luckily, I’m living in this era where all these powerful tools are just a few lines of code away 😅!
 
 >We’re not going to reinvent the wheel by coding everything from scratch—like the tokenizer and other core components. The goal here is to understand how a model works in general before trying to build one ourselves.
 
 We now load the tokenizer associated with the transformer model `distilbert-base-uncased`.
 
-Tokenization is the step where raw text is converted into a sequence of token IDs that the model can understand. These tokens are often subwords (like "play" + "##ing").
+Tokenization is the step where raw text is converted into a sequence of token IDs that the model can understand. These tokens are often subwords (like ``"play"`` + ``"##ing"``).
 
 You can think of the tokenizer as the language of your model — without it, it simply won’t understand what you’re trying to say😝.
-
-### Code:
 ```python
 print("Loading a pre-trained tokenizer from Hugging Face Transformers")
 from transformers import AutoTokenizer
@@ -195,11 +193,10 @@ print("Tokenizer loaded successfully!")
 >Just like the dataset, Hugging Face will download the tokenizer files the first time and store them in your local cache (`~/.cache/huggingface/transformers/`). Subsequent runs will reuse these files — no re-download needed.
 >This is true for almost everything you load from 🤗 — whether it's a dataset, a tokenizer, or a pre-trained model, there will always be an initial download the first time.
 
->The `distilbert-base-uncased` tokenizer is case-insensitive — "Hello" and "hello" will be treated the same.
+The `distilbert-base-uncased` tokenizer is case-insensitive — "Hello" and "hello" will be treated the same.
 
 ---
 After loading the tokenizer, let’s try it out on a simple example.
-### Code:
 ```python
 print("Tokenizing a sample text using the pre-trained tokenizer")
 text = "Tokenizing text is a core task of NLP"
@@ -210,14 +207,13 @@ tokens = tokenizer.convert_ids_to_tokens(encoded_text.input_ids)
 print(tokens)
 ```
 
-Here, my print() statements show:
+Here, my ``print()`` statements show:
 - The original text we want to tokenize
 
-- The raw output from the tokenizer (includes input_ids, attention_mask, etc.)
+- The raw output from the tokenizer (includes ``input_ids``, ``attention_mask``, etc.)
 
-- The actual tokens (subwords) that correspond to each ID
+- The actual tokens (subwords) that correspond to each ``ID``
 
-### Output: 
 ```
 Tokenizing a sample text using the pre-trained tokenizer
 text: Tokenizing text is a core task of NLP
@@ -234,7 +230,7 @@ We get a dictionary called encoded_text, which includes:
 I'll explain `attention_mask` in more detail later — but for now, just know it's important, especially when dealing with padding or variable-length sequences.
 
 >Notice how the word "Tokenizing" is split into 'token' and '##izing' — this is a subword tokenization strategy called WordPiece, used by BERT-based models.
-The special tokens [CLS] and [SEP] are automatically added: [CLS] marks the start of the input, and [SEP] is used to separate segments.
+The special tokens **[CLS]** and **[SEP]** are automatically added: **[CLS]** marks the start of the input, and **[SEP]** is used to separate segments.
 
 ---
 So, that’s good — we know how to tokenize a single sentence.
@@ -315,11 +311,11 @@ print("Encoder/model loaded successfully!")
 ```
 
 So what’s going on here?
-- `torch.device(...)` → We check if we have a GPU (`CUDA`). If yes, we use it. If not... CPU it is.
+- `torch.device(...)`: We check if we have a GPU (`CUDA`). If yes, we use it. If not... CPU it is.
 
-- `AutoModel.from_pretrained(...)` → This line loads a pre-trained encoder (like `DistilBERT`, `BERT`, `RoBERTa` etc.) from 🤗 using the model checkpoint we defined earlier.
+- `AutoModel.from_pretrained(...)`: This line loads a pre-trained encoder (like `DistilBERT`, `BERT`, `RoBERTa` etc.) from 🤗 using the model checkpoint we defined earlier.
 
-- `.to(device)` → We make sure our model goes to the same device (GPU/CPU) as our data.
+- `.to(device)`: We make sure our model goes to the same device (GPU/CPU) as our data.
 
 The model is now ready to process tokenized inputs like a boss.
 
@@ -344,10 +340,172 @@ Note that :
 >Because the model has learned to associate specific token IDs with specific word patterns based on that tokenizer.
 >
 >If you change the tokenizer, you’re basically changing the model’s entire language —
->like saying “cat” when you mean “bed”.
+>like saying “cat” when you mean “bed.”
 
 The model will still process the input, but it’ll make wrong associations —
 and your performance will collapse.
 
 Using the original tokenizer ensures the input IDs line up correctly
 with what the model expects internally.
+
+---
+So now we need to extract the hidden state of the model, 
+which is like peeking inside its neural brain to see what kind of representation it builds for each sentence. 
+Specifically, we want the vector representation of each input — 
+usually we take the ``[CLS]`` token (i.e., **the first token**) as a summary of the whole sequence.
+
+````python
+def extract_hidden_states(batch):
+    inputs = {k: v.to(device) for k, v in batch.items() if k in tokenizer.model_input_names}
+    with torch.no_grad():
+        last_hidden_state = model(**inputs).last_hidden_state
+    return {"hidden_state": last_hidden_state[:, 0].cpu().numpy()}
+````
+This function does the following:
+- It prepares the inputs by moving them to the correct device (GPU/CPU).
+- It runs the model in inference mode (no gradients needed) to get the last hidden state.
+- It extracts the hidden state of the first token (`[CLS]`) for each input and returns it as a NumPy array.
+
+Why the ``[CLS]`` token?
+>Because for models like ``BERT`` and ``DistilBERT``, the first token is supposed to summarize the entire sequence, making it ideal for classification or similarity tasks.
+
+Now, we can apply it to the entire dataset to actually extract the embeddings for all examples. 
+We’ll first set the format of our dataset to PyTorch tensors — 
+that way, it plays nicely with our model.
+```python
+print("Extracting hidden states from the tokenized dataset")
+emotions_encoded.set_format("torch", columns=["input_ids", "attention_mask", "label"])
+emotions_hidden = emotions_encoded.map(extract_hidden_states, batched=True)
+print("Hidden states extracted successfully!")
+```
+Your dataset is now enriched with hidden states — essentially, 
+numerical summaries of your inputs, ready for further processing like dimensionality reduction or clustering.
+
+Now that we’ve extracted the hidden states, 
+let’s make sure they were properly added to the dataset by checking the column names of the training split:
+```python
+print("Checking the structure of the dataset with hidden states:", emotions_hidden["train"].column_names)
+```
+If everything went well, you should see something like:
+```
+Checking the structure of the dataset with hidden states: ['text', 'label', 'input_ids', 'attention_mask', 'hidden_state']
+```
+---
+Now that the hidden states are part of the dataset, we can extract them and convert everything into NumPy arrays — 
+a format that's convenient for training traditional machine learning models like logistic regression or SVM:
+```python
+print("Converting the hidden states to a NumPy array")
+import numpy as np
+
+X_train = np.array(emotions_hidden["train"]["hidden_state"])
+X_valid = np.array(emotions_hidden["validation"]["hidden_state"])
+y_train = np.array(emotions_hidden["train"]["label"])
+y_valid = np.array(emotions_hidden["validation"]["label"])
+```
+Always check your data shapes!
+
+Trust me, it’ll save you from a world of pain with dimension mismatches, matrix multiplication errors, and all those “but why won’t this run?” moments.
+```python
+print("Shape of the training and validation data:")
+print(X_train.shape, X_valid.shape)
+
+print("Shape of the training and validation labels:")
+print(y_train.shape, y_valid.shape)
+```
+````python
+Shape of the training and validation data:
+(16000, 768) (2000, 768)
+Shape of the training and validation labels:
+(16000,) (2000,)
+````
+In our case, we don't really need to worry about the shape but it’s a good habit to check.
+
+---
+So far, we've gone deep into the Transformerverse™.
+
+We've:
+- Tokenized text like chefs slicing sushi,
+- Fed it into a ``DistilBERT`` encoder,
+- And grabbed those sweet, juicy ``hidden states`` — the high-dimensional brainwaves of the model.
+
+But here’s the catch, Those hidden states?
+
+They're super high-dimensional, like **768** dimensions (or more).
+Plotting that is like trying to draw the 14th dimension with a crayon. Not happening.
+
+### So what now?
+We need to reduce all that complexity down to 2 dimensions, so our puny human brains can make sense of it.
+That’s where UMAP comes in — kind of like a cosmic flattening iron.
+
+Let’s walk through the code
+```python
+from umap import UMAP
+from sklearn.preprocessing import MinMaxScaler
+```
+We're importing:
+- ``UMAP`` — the dimensionality-reduction master.
+- ``MinMaxScaler`` — our data hygiene consultant. Keeps things between ``0`` and ``1``. Very tidy.
+
+```python
+X_scaled = MinMaxScaler().fit_transform(X_train)
+```
+Remember those hidden states we extracted from ``DistilBert``?
+Well, they’re still messy.
+So we scale them to a nice uniform range. It’s like adjusting the volume on each neuron so no one’s screaming.
+
+```python
+mapper = UMAP(n_components=2, metric="cosine").fit(X_scaled)
+```
+Here’s where the magic happens, We say:
+>“Hey UMAP, take these 768-dimensional nightmares and project them into just 2 dimensions... but keep the cosine vibes.”
+
+Why cosine distance?
+
+Because direction matters more than raw distance — 
+like saying two people have similar tastes in memes, even if they live on opposite sides of the Earth.
+
+And now, we can just do
+```python
+df_emb = pd.DataFrame(mapper.embedding_, columns=["X", "Y"])
+```
+Congratulations! 🎉
+
+You've now got a beautiful 2D version of your complex BERT-processed data.
+Like turning a tangled ball of Christmas lights into a clean LED strip.
+
+After that, we bring back the original labels to our DataFrame:
+```python
+df_emb["label"] = y_train
+```
+If you check the shape of `df_emb`, with:
+```python
+print("Shape of the DataFrame with embeddings:", df_emb.shape)
+```
+you should see:
+```
+Shape of the DataFrame with embeddings: (16000, 3)
+```
+
+Alright, the hard part is done. We've flattened BERT’s brainwaves, 
+scaled the data, sprinkled some UMAP magic — now it's time to actually see something.
+
+Here’s how we can visualize the embedded data:
+```python
+print("Visualizing the UMAP embedding of the training data")
+fig, axes = plt.subplots(2, 3, figsize=(7, 5))
+axes = axes.flatten()
+cmaps = ["Greys", "Blues", "Oranges", "Reds", "Purples", "Greens"]
+labels = emotions["train"].features["label"].names
+for i, (label, cmap) in enumerate(zip(labels, cmaps)):
+    df_emb_sub = df_emb.query(f"label == {i}")
+    axes[i].hexbin(df_emb_sub["X"], df_emb_sub["Y"], cmap=cmap,
+                   gridsize=20, linewidths=(0,))
+    axes[i].set_title(label)
+    axes[i].set_xticks([]), axes[i].set_yticks([])
+plt.tight_layout()
+plt.show()
+```
+You will see a grid of hexagonal bins, each representing the density of points in that area.
+
+!["UMAP Embedding Visualization"](./Image/Hexa)
+

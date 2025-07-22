@@ -17,6 +17,8 @@ print("Checking the structure of the DataFrame:")
 print(df.head())
 
 print("Add a new column 'label_name' to the DataFrame with string labels")
+
+
 def label_int2str(row):
     return emotions["train"].features["label"].int2str(row)
 
