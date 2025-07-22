@@ -22,31 +22,32 @@ It's easy to load a sample dataset using 🤗(Hugging Face) Datasets — just on
 
 In our case, we use the `emotion` dataset, which contains short text messages labeled with emotional categories like joy, anger, sadness, and more.
 
-Once loaded, we can preview a few samples and check how many examples are available for training.
-
 ### Code:
 ```python
 print("Loading a dataset from Hugging Face Datasets")
 from datasets import load_dataset
 
 emotions = load_dataset("emotion")
-print(f"Number of samples in the emotion dataset: {len(emotions)}")
-print(f'2 Example data for training: {emotions["train"][:2]}')
 ```
 This dataset is great for exploration: it’s small enough to experiment quickly, but rich enough to visualize patterns and train models that make meaningful predictions.
-
-Here my `print` statement show :
-- The number of samples available
-- A concrete preview of the data entries
-
-### Output:
-```
-Loading a dataset from Hugging Face Datasets
-Number of samples in the emotion dataset: 3
-2 Example data for training :{'text': ['i didnt feel humiliated', 'i can go from feeling so hopeless to so damned hopeful just from being around someone who cares and is awake'], 'label': [0, 0]}
-```
->The first time you run this, Hugging Face will download the dataset and store it in your local cache (usually under `~/.cache/huggingface/`).
+>The first time you run this, 🤗 will download the dataset and store it in your local cache (usually under `~/.cache/huggingface/`).
 The next time, it loads instantly from cache — no internet required!
+
+Once the dataset is loaded, you can, for example, check the size of it using `len`.
+```python
+print(f"Length of the dataset: {len(emotions)}")
+```
+And you can have something like this:
+```
+Length of the dataset: 3
+```
+That’s because most NLP datasets are usually split into **three** parts:
+- Train: used to teach the model,
+- Validation: used during training to evaluate how well the model is generalizing,
+- Test: used at the very end to measure the final performance.
+
+Why usually train, validation, and test?🤔
+> Because if you train and evaluate on the same data, you're basically asking the model to recite, not to understand. We want to test if it actually **generalizes** — not just memorizes.
 
 ---
 Just like loading a dataset with Hugging Face is easy 😊, grabbing a model—or a part of it, like its tokenizer—is just as simple 😎.
