@@ -2,8 +2,39 @@ print("Loading a dataset from Hugging Face Datasets")
 from datasets import load_dataset
 
 emotions = load_dataset("emotion")
-print(f"Number of samples in the emotion dataset: {len(emotions)}")
-print(f'2 Example data for training :{emotions["train"][:2]}')
+print(f"Length of the dataset: {len(emotions)}")
+
+print("Explore the dataset structure")
+print(emotions["train"].column_names)
+print(emotions["train"].features)
+
+print("Importing pandas for DataFrame manipulation")
+import pandas as pd
+
+emotions.set_format(type="pandas")
+df = emotions["train"][:]
+print("Checking the structure of the DataFrame:")
+print(df.head())
+
+print("Add a new column 'label_name' to the DataFrame with string labels")
+def label_int2str(row):
+    return emotions["train"].features["label"].int2str(row)
+
+
+df["label_name"] = df["label"].apply(label_int2str)
+
+print("Checking the new structure of the DataFrame: ")
+print(df.head())
+
+print("Visualizing the distribution of labels in the dataset")
+import matplotlib.pyplot as plt
+
+df["label_name"].value_counts(ascending=True).plot.barh()
+plt.title("Frequency of Classes")
+plt.show()
+
+print("Resetting the format of the dataset to its original structure")
+emotions.reset_format()
 
 print("Loading a pre-trained tokenizer from Hugging Face Transformers")
 from transformers import AutoTokenizer
@@ -75,7 +106,6 @@ print("Shape of the training and validation labels:")
 print(y_train.shape, y_valid.shape)
 
 print("Embedding the training data using UMAP")
-import pandas as pd
 from umap import UMAP
 from sklearn.preprocessing import MinMaxScaler
 
@@ -86,8 +116,6 @@ df_emb["label"] = y_train
 print("Shape of the UMAP embedding DataFrame:", df_emb.shape)
 
 print("Visualizing the UMAP embedding of the training data")
-import matplotlib.pyplot as plt
-
 fig, axes = plt.subplots(2, 3, figsize=(7, 5))
 axes = axes.flatten()
 cmaps = ["Greys", "Blues", "Oranges", "Reds", "Purples", "Greens"]
@@ -175,4 +203,3 @@ print("Evaluation results:", preds_output.metrics)
 print("Plotting the confusion matrix for the fine-tuned model")
 y_preds = np.argmax(preds_output.predictions, axis=1)
 plot_confusion_matrix(y_preds, y_valid, labels)
-

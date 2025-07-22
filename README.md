@@ -49,8 +49,129 @@ That’s because most NLP datasets are usually split into **three** parts:
 Why usually train, validation, and test?🤔
 > Because if you train and evaluate on the same data, you're basically asking the model to recite, not to understand. We want to test if it actually **generalizes** — not just memorizes.
 
+So, let’s check the name of the columns with `column_names`:
+```python
+print("Checking the structure of the dataset:", emotions["train"].column_names)
+```
+```
+Checking the structure of the dataset: ['text', 'label']
+```
+This shows that each example in the dataset has two columns:
+- `text`: the actual text message (like "I am so happy today!"),
+- `label`: the corresponding emotion label (like "joy").
+
+But we can go a bit deeper and explore what these columns actually contain using `.features` :
+```python
+print("Exploring the dataset features:", emotions["train"].features)
+```
+```
+Exploring the dataset features: {'text': Value(dtype='string', id=None), 
+'label': ClassLabel(num_classes=6, names=['joy', 'sadness', 'anger', 'fear', 'surprise', 'love'], id=None)}
+```
+In this case, the data type of the `text` column is ``string``, while the ``label`` column is a
+special ``ClassLabel`` object that contains information about the class names and their
+mapping to integers.
+
+Now let’s dive into a classic data science habit: turning everything into a DataFrame — because if it’s not a DataFrame, did you even analyze it? 😏
+```python
+print("Importing pandas for DataFrame manipulation")
+import pandas as pd
+
+emotions.set_format(type="pandas")
+```
+This line tells 🤗 datasets to give us the data in pandas format, so we can work with it like pros (and avoid looping through dictionaries like cavemen).
+
+After that, we can grab the training set and convert it into a DataFrame:
+```python
+df = emotions["train"][:]
+```
+DataFrame is basically a fancy table with superpowers 😋.
+
+So... let's take a peek at what we’re working with 👀.
+```python
+print("Checking the structure of the DataFrame:")
+print(df.head())
+```
+```
+Checking the structure of the DataFrame:
+                                                text  label
+0                            i didnt feel humiliated      0
+1  i can go from feeling so hopeless to so damned...      0
+2   im grabbing a minute to post i feel greedy wrong      3
+3  i am ever feeling nostalgic about the fireplac...      2
+4                               i am feeling grouchy      3
+```
+Numbers are great for computers, but we humans prefer words.
+
+So, we’ll translate the numeric label into a readable string like "joy", "anger", etc.
+
+To do that, we’ll define a simple function:
+```python
+def label_int2str(row):
+    return emotions["train"].features["label"].int2str(row)
+```
+``emotions["train"].features["label"]`` is a ClassLabel object.
+This special class has a method called ``.int2str()`` which converts an integer label (e.g., ``2``) into a string label (e.g., ``joy``).
+
+Now let’s apply it to every row:
+```python
+df["label_name"] = df["label"].apply(label_int2str)
+```
+This creates a new column called "label_name" with readable labels. 🎉
+
+Let's check the updated DataFrame:
+```python
+print("Checking the new structure of the DataFrame: ")
+print(df.head())
+```
+```
+                                                text  label label_name
+0                            i didnt feel humiliated      0    sadness
+1  i can go from feeling so hopeless to so damned...      0    sadness
+2   im grabbing a minute to post i feel greedy wrong      3      anger
+3  i am ever feeling nostalgic about the fireplac...      2       love
+4                               i am feeling grouchy      3      anger
+
+```
+Much better, right? 😏
+
+Now that we’ve got our label_name column with readable emotions instead of just numbers, 
+let’s visualize how balanced (or unbalanced) the dataset is — 
+because not all emotions are equally represented… and that’s okay, life isn’t fair either 😅
+```python
+print("Visualizing the distribution of labels in the dataset")
+import matplotlib.pyplot as plt
+
+df["label_name"].value_counts(ascending=True).plot.barh()
+plt.title("Frequency of Classes")
+plt.show()
+```
+``.plot.barh()`` makes a horizontal bar chart. Why horizontal? Because it’s prettier. Just kidding... it often fits labels better
+
+Look at that! We can see the distribution of emotions in our dataset.
+
+![Frequency of Classes](./Image/Frequency)
+
+You get a nice bar chart showing how emotions like joy, anger, or fear are spread across the training dataset. Great way to spot imbalances — which matter a lot for model training. For example:
+there's 8000 "joy" samples but only 800 "surprise," our model might become a joy-addict. 😂
+
+Want to fix that? Techniques like **oversampling**, **undersampling**, or **class weights** can help — but we’ll keep that for another time 😉
+
+Next, we execute this:
+```python
+print("Resetting the format of the dataset to its original structure")
+emotions.reset_format()
+```
+We’re using ``reset_format()`` to undo any temporary formatting (like converting it to pandas).
+But honestly…
+>**We could’ve skipped it entirely.** 
+> 
+>We just wanted to feel fancy and play with DataFrames for better visuals and manipulation. 🤓
+
+So, ``emotions`` is now once again in its raw, native, ready-to-use 🤗 format!
+
 ---
-Just like loading a dataset with Hugging Face is easy 😊, grabbing a model—or a part of it, like its tokenizer—is just as simple 😎.
+Just like loading a dataset with 🤗 is easy 😊, grabbing a model—or a part of it, like its tokenizer—is just as simple 😎.
 Luckily, I’m living in this era where all these powerful tools are just a few lines of code away 😅!
 
 >We’re not going to reinvent the wheel by coding everything from scratch—like the tokenizer and other core components. The goal here is to understand how a model works in general before trying to build one ourselves.
