@@ -521,4 +521,85 @@ It just picked up on them implicitly by guessing masked words in text.
 And honestly, this distribution makes sense — emotions like ``sadness``, `anger`, and `fear` often overlap in language,
 while `joy` and `love` share a positive space.
 `Surprise`, by its nature, doesn’t fit neatly anywhere, so its scatter isn’t surprising at all.
+---
+Now that we’ve seen how the model implicitly clusters emotions in its hidden states, let’s see if those hidden states actually carry enough signal to predict the emotion directly.
+
+We train a simple logistic regression classifier on top of the hidden states — nothing fancy, just to test how linearly separable the emotional representations are.
+```python
+print("Training a logistic regression classifier on the hidden states")
+from sklearn.linear_model import LogisticRegression
+
+lr_clf = LogisticRegression(max_iter=3000)
+lr_clf.fit(X_train, y_train)
+print("Training complete! Accuracy on validation set:", lr_clf.score(X_valid, y_valid))
+```
+
+If the accuracy is good, that means the language model’s embeddings already capture emotional information in a way that a linear model
+can exploit. If it’s low, then the emotions might be entangled in a more complex, non-linear space — 
+which would also make sense.
+
+```
+Training complete! Accuracy on validation set: 0.6335
+```
+So… the accuracy is `63.35%`.
+
+Not mind-blowing, but not garbage either. 
+For a logistic regression just chilling on top of hidden states from a model 
+that never asked to do emotion classification? That’s honestly pretty solid.
+
+It’s like asking someone who’s never studied psychology to guess your mood based only on your tweets
+— and they get it right 6 times out of 10. Not bad, random stranger. Not bad.
+
+This tells us the embeddings do carry emotional signals. 
+The model wasn’t trained for that, but it kinda picked it up just by reading tons of text. 
+Like a quiet kid in the back of the class who somehow absorbs the whole lecture.
+
+Now, 63% also means emotions aren’t linearly separable. Obviously. This is human stuff. 
+Sarcasm exists. Context exists. People say “I’m fine” when they’re absolutely not.
+
+So yeah:
+- The model feels something.
+
+- But if you want real emotional intelligence, maybe don’t trust a compressed neural network with no empathy and 12 attention heads.
+
+Alright, so numbers are cute, but let’s dig deeper.
+
+Overall accuracy tells us how often the model gets things right — but not where it fails, or how.
+
+So let’s throw in a confusion matrix and see which emotions the classifier keeps mixing up.
+I mean, if it thinks fear is love, we might need to talk.
+```python
+print("Evaluating the classifier on the validation set")
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+
+
+def plot_confusion_matrix(y_preds, y_true, labels):
+    cm = confusion_matrix(y_true, y_preds, normalize="true")
+    fig, ax = plt.subplots(figsize=(6, 6))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+    disp.plot(cmap="Blues", values_format=".2f", ax=ax, colorbar=False)
+    plt.title("Normalized confusion matrix")
+    plt.show()
+
+
+y_preds = lr_clf.predict(X_valid)
+plot_confusion_matrix(y_preds, y_valid, labels)
+```
+
+You might see something like this:
+![Confusion Matrix](./Image/Confusion_matrix)
+
+And there it is. The confusion matrix spills the emotional tea.
+
+- `Anger` and `fear` are most often mistaken for `sadness` — which honestly makes sense. 
+If you're shouting or panicking, chances are something’s hurting underneath. The classifier’s basically going “You okay, bro?” and defaulting to sadness.
+
+- `Love` and `surprise` often get confused with `joy`. Again, fair enough. 
+Falling in love? Surprising gift? Birthday cake? All feels like joy on the surface.
+
+This actually lines up with what we saw earlier in the embedding plot: these emotions share semantic neighborhoods — 
+they show up in similar linguistic contexts, so the model learns to squish them together.
+
+So yeah, the classifier's not dumb. It’s just… emotionally approximate. 
+Like someone who hugs you when you're angry because they can't tell the difference.
 
