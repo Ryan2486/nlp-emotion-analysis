@@ -509,3 +509,16 @@ You will see a grid of hexagonal bins, each representing the density of points i
 
 !["UMAP Embedding Visualization"](./Image/Hexa)
 
+From this plot, we can spot some clear patterns: **negative** emotions like ``sadness``, ``anger``, and ``fear`` cluster
+around similar areas, though their exact spread varies a bit.
+On the flip side, ``joy`` and ``love`` stand apart from those negatives but hang out close to each other.
+``Surprise``? It’s all over the place — no clear home.
+
+Sure, we might have hoped for a clean cut between these feelings, but there’s no guarantee.
+The model wasn’t trained to explicitly know the difference between emotions.
+It just picked up on them implicitly by guessing masked words in text.
+
+And honestly, this distribution makes sense — emotions like ``sadness``, `anger`, and `fear` often overlap in language,
+while `joy` and `love` share a positive space.
+`Surprise`, by its nature, doesn’t fit neatly anywhere, so its scatter isn’t surprising at all.
+
