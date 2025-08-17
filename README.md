@@ -713,6 +713,7 @@ y_preds = np.argmax(preds_output.predictions, axis=1)
 plot_confusion_matrix(y_preds, y_valid, labels)
 ```
 ![Confusion Matrix](./Image/myplot.png)
+
 And there it is — the moment of truth.
 
 Look at that. `Anger`, `fear`, and `sadness` are finally separated instead of blending into a sad soup.
