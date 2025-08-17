@@ -521,6 +521,7 @@ It just picked up on them implicitly by guessing masked words in text.
 And honestly, this distribution makes sense — emotions like ``sadness``, `anger`, and `fear` often overlap in language,
 while `joy` and `love` share a positive space.
 `Surprise`, by its nature, doesn’t fit neatly anywhere, so its scatter isn’t surprising at all.
+
 ---
 Now that we’ve seen how the model implicitly clusters emotions in its hidden states, let’s see if those hidden states actually carry enough signal to predict the emotion directly.
 
@@ -602,4 +603,145 @@ they show up in similar linguistic contexts, so the model learns to squish them 
 
 So yeah, the classifier's not dumb. It’s just… emotionally approximate. 
 Like someone who hugs you when you're angry because they can't tell the difference.
+
+---
+Now, we’ve seen how the model behaves with a simple logistic regression classifier.
+
+But what if we want to take it up a notch and fine-tune the actual `DistilBERT` model on this emotion classification task?
+
+So, let’s do that!
+```python
+print("Fine-tuning a pre-trained model for sequence classification")
+from transformers import AutoModelForSequenceClassification
+
+num_labels = 6
+model = (AutoModelForSequenceClassification
+         .from_pretrained(model_ckpt, num_labels=num_labels)
+         .to(device))
+print("Model for sequence classification loaded successfully!")
+```
+And to evaluate the model, we need to define a few things:
+```python
+print("Defining a function to calculate metrics for evaluation")
+from sklearn.metrics import accuracy_score, f1_score
+
+
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    f1 = f1_score(labels, preds, average="weighted")
+    acc = accuracy_score(labels, preds)
+    return {"accuracy": acc, "f1": f1}
+```
+This function will calculate the accuracy and F1 score of our predictions, which are standard metrics for classification tasks.
+
+After that, we can set up the training arguments:
+```python
+print("Setting up the training arguments for fine-tuning")
+from transformers import Trainer, TrainingArguments
+
+batch_size = 64
+logging_steps = len(emotions_encoded["train"])
+model_name = f"{model_ckpt}-finetuned-emotion"
+training_args = TrainingArguments(output_dir=model_name, num_train_epochs=2, learning_rate=2e-5,
+                                  per_device_train_batch_size=batch_size,
+                                  per_device_eval_batch_size=batch_size,
+                                  weight_decay=0.01,
+                                  disable_tqdm=False,
+                                  logging_steps=logging_steps,
+                                  push_to_hub=True,
+                                  log_level="error")
+```
+This sets up the training parameters:
+- `output_dir`: where to save the model and logs
+- `num_train_epochs`: how many times to go through the training data
+- `learning_rate`: how fast to learn
+- `per_device_train_batch_size`: how many samples to process at once on each device (GPU/CPU)
+- `weight_decay`: a regularization term to prevent overfitting
+- `disable_tqdm`: whether to disable the progress bar
+- `logging_steps`: how often to log training progress
+- `push_to_hub`: whether to push the model to the Hugging Face Hub
+- `log_level`: set to "error" to avoid too much logging noise
+
+And finally, we can create a `Trainer` instance to handle the training loop:
+```python
+print(" Creating a Trainer instance for fine-tuning")
+trainer = Trainer(model=model, args=training_args,
+                  compute_metrics=compute_metrics,
+                  train_dataset=emotions_encoded["train"],
+                  eval_dataset=emotions_encoded["validation"],
+                  tokenizer=tokenizer)
+trainer.train()
+
+print("Fine-tuning complete! Evaluating the model on the validation set")
+```
+And now, if we evaluate the model like this:
+```python
+print("Fine-tuning complete! Evaluating the model on the validation set")
+preds_output = trainer.predict(emotions_encoded["validation"])
+print("Evaluation results:", preds_output.metrics)
+```
+You might see something like this:
+```
+Evaluation results: {'test_loss': 0.21890252828598022, 
+'test_accuracy': 0.9245, 'test_f1': 0.9244362486935253,
+ 'test_runtime': 13.8954, 'test_samples_per_second': 143.932, 
+ 'test_steps_per_second': 2.303}
+```
+This shows that the fine-tuned model achieved an `accuracy` of `92.45%` and an `F1 score` of `92.44%`
+on the validation set.
+
+This is a huge improvement over the logistic regression classifier, which only managed `63.35%` accuracy.
+
+And yeah — that’s a massive jump. From `~63%` to over `92%`!
+
+**Maybe you’re wondering… why does the fine-tuned model do so much better ?**
+
+Because this time, the model isn’t relying on vague patterns in language. 
+It’s actually trained to recognize emotions. The hidden states get fine-tuned,
+and suddenly anger isn’t just “sad-ish with spice,” and love isn’t always “joy in disguise.” It knows what it’s looking for.
+
+---
+Alright, numbers are great, but let’s see it visually — a visualization like I love, the little moments of satisfaction in the life of a data analyst and ML practitioner.
+
+Remember the confusion matrix from the logistic regression? Emotions were getting mixed like socks in the laundry — anger, fear, and sadness all kind of blended together, love and surprise were tagging along with joy… chaos.
+
+Now, after fine-tuning, it’s time to check the new confusion matrix and see how much cleaner the model’s predictions got. Let’s plot it and compare.
+```python
+print("Plotting the confusion matrix for the fine-tuned model")
+y_preds = np.argmax(preds_output.predictions, axis=1)
+plot_confusion_matrix(y_preds, y_valid, labels)
+```
+![Confusion Matrix](./Image/myplot.png)
+And there it is — the moment of truth.
+
+Look at that. `Anger`, `fear`, and `sadness` are finally separated instead of blending into a sad soup.
+`Love` and `surprise` have their own space instead of crashing `joy`’s party.
+
+Fine-tuning did its magic: the model isn’t just guessing anymore. 
+It’s like it finally put on its glasses and started reading emotions properly.
+
+Honestly, moments like this are why being a data analyst / ML practitioner is so satisfying.
+You take messy numbers and turn them into something that actually makes sense — a little triumph every time.
+
+---
+And that’s a wrap for this GitHub repository notebook! 🎉
+
+Here’s what we did:
+
+- Grabbed a dataset from 🤗(Hugging Face).
+
+- Had some fun with visualizations.
+
+- Tested out `DistilBERT-base-uncased`, using its tokenizer and encoder.
+
+- Played around with `UMAP` to see how emotions cluster in latent space.
+
+- Built a logistic regression classifier on top — got a decent result (`~63%` accuracy).
+
+- Then, we took it a step further and fine-tuned the `DistilBERT` classification model itself, boosting accuracy to over `92%`.
+
+From exploring embeddings to fine-tuning a transformer, this notebook captures a full ML workflow — all the little joys of seeing messy data turn into something that actually makes sense.
+
+And honestly, moments like this are why being a data analyst / ML practitioner is so satisfying.
 
